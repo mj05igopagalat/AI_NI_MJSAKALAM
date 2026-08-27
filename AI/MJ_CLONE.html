@@ -285,6 +285,9 @@
 
 <script>
 const cloneName = 'MJ'; // fixed — this clone is always MJ's persona
+// Ilagay dito ang URL ng deployed Cloudflare Worker, halimbawa:
+// https://mj-clone-api.<account>.workers.dev
+const WORKER_URL = 'https://mj-clone-api.abcd1234.workers.dev';
 let chatterName = '';
 let closeness = 'close';
 let history = [];
@@ -365,7 +368,11 @@ async function sendMessage(){
   const typingBubble = addBubble('nagta-type...', 'typing');
 
   try{
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    if(WORKER_URL === 'PASTE_YOUR_WORKER_URL_HERE'){
+      throw new Error('Hindi pa nailalagay ang Cloudflare Worker URL.');
+    }
+
+    const response = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -375,7 +382,10 @@ async function sendMessage(){
         messages: history
       })
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
+    if(!response.ok){
+      throw new Error(data?.error?.message || data?.error || `HTTP ${response.status}`);
+    }
     typingBubble.remove();
 
     let replyText = 'Sorry, medyo nagulo ako, pwede paulit?';
@@ -387,7 +397,7 @@ async function sendMessage(){
     history.push({role:'assistant', content: replyText});
   }catch(err){
     typingBubble.remove();
-    addBubble('Ay, may error. Subukan ulit mamaya.', 'mine');
+    addBubble('Ay, may error: ' + err.message, 'mine');
     console.error('API error:', err);
   }finally{
     sending = false;
